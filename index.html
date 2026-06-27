@@ -91,7 +91,7 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
-            height: 100vh; /* Pastikan tinggi konten pas layar */
+            height: 100vh;
         }
 
         .mobile-header {
@@ -107,13 +107,42 @@
 
         .menu-toggle-btn { background: none; border: none; color: white; font-size: 1.3rem; cursor: pointer; }
 
+        /* --- KONTEN TOP BAR (BARU) --- */
+        .content-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px 5px 20px;
+        }
+        .content-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .btn-share {
+            background-color: #10b981;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: none; /* Default tersembunyi */
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+            transition: background 0.2s;
+        }
+        .btn-share:hover { background-color: #059669; }
+
         /* Area Konten */
         .content-body {
-            padding: 15px; /* Dikecilkan sedikit agar iframe lebih luas */
+            padding: 10px 15px 15px 15px;
             flex-grow: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Mencegah double scrollbar */
+            overflow: hidden;
         }
 
         /* Styling Khusus Iframe */
@@ -139,6 +168,7 @@
             .sidebar-overlay.active { display: block; }
             .content-body { padding: 10px; }
             #appFrame { border-radius: 8px; }
+            .content-topbar { padding: 10px 15px 0 15px; }
         }
     </style>
 </head>
@@ -195,6 +225,13 @@
                 <span>GuruKu</span>
             </header>
 
+            <div class="content-topbar">
+                <span class="content-title" id="pageTitle">Dashboard</span>
+                <button class="btn-share" id="btnShare" onclick="salinLinkUjian()">
+                    <i class="fas fa-copy"></i> <span id="btnShareText">Salin Link Ujian</span>
+                </button>
+            </div>
+
             <div class="content-body">
                 <iframe id="appFrame" src="dashboard.html" title="Modul Aplikasi GuruKu"></iframe>
             </div>
@@ -207,8 +244,10 @@
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
         const iframe = document.getElementById('appFrame');
+        const pageTitle = document.getElementById('pageTitle');
+        const btnShare = document.getElementById('btnShare');
+        const btnShareText = document.getElementById('btnShareText');
 
-        // Fungsi membuka/menutup sidebar di HP
         function toggleSidebar() {
             sidebar.classList.toggle('active');
             sidebarOverlay.classList.toggle('active');
@@ -217,31 +256,39 @@
         menuToggle.addEventListener('click', toggleSidebar);
         sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        // Simulasi ID Guru dari sistem login utama
         const USER_UID = "GURU_DEMO_123";
+        const LINK_UJIAN = "https://ujianku-1.netlify.app/"; // Link Ujianku Netlify
         
-        // Fungsi navigasi menu untuk mengganti src pada iframe
+        // Fungsi Navigasi Menu
         function gantiMenu(elemen, jenisMenu) {
-            // Hapus class 'active' dari semua menu
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-            // Tambahkan class 'active' ke menu yang diklik
             elemen.classList.add('active');
 
-            // Tutup sidebar otomatis jika di HP
             if(window.innerWidth <= 768) {
                 toggleSidebar();
             }
 
-            // SELALU HAPUS SRCDOC AGAR SRC BISA TERBACA!
             iframe.removeAttribute('srcdoc');
 
-            // Ganti target iframe sesuai menu
+            // Default: Sembunyikan tombol share setiap ganti menu
+            btnShare.style.display = "none";
+
             if (jenisMenu === 'dashboard') {
+                pageTitle.innerText = "Dashboard";
                 iframe.src = "dashboard.html";
             } else if (jenisMenu === 'absensi') {
+                pageTitle.innerText = "Absensi Siswa";
                 iframe.src = `absensi.html?uid=${USER_UID}`;
+            } else if (jenisMenu === 'ujian') {
+                pageTitle.innerText = "Ujianku";
+                iframe.src = LINK_UJIAN;
+                
+                // BARU: Tampilkan tombol share hanya saat membuka menu Ujianku
+                btnShare.style.display = "flex";
+                btnShareText.innerText = "Salin Link Ujian"; // Reset teks tombol
             } else {
-                // Untuk menu lain, tampilkan halaman dummy sementara menggunakan srcdoc
+                // Menu tahap pengembangan
+                pageTitle.innerText = jenisMenu.toUpperCase();
                 iframe.srcdoc = `
                     <div style="display:flex; justify-content:center; align-items:center; height:100%; flex-direction:column; font-family: 'Poppins', sans-serif; color: #475569; background: #f8fafc;">
                         <h2 style="color: #0f172a; margin-bottom: 8px;">Modul ${jenisMenu.toUpperCase()}</h2>
@@ -251,7 +298,22 @@
             }
         }
 
-        // 4. MENDENGARKAN SINYAL DARI dashboard.html (JIKA TOMBOL PINTASAN DI DASHBOARD DIKLIK)
+        // BARU: Fungsi untuk menyalin link ke clipboard HP / Laptop
+        function salinLinkUjian() {
+            navigator.clipboard.writeText(LINK_UJIAN).then(() => {
+                // Animasi teks sukses saat berhasil disalin
+                btnShareText.innerText = "Link Berhasil Disalin! ✓";
+                
+                // Kembalikan teks asli setelah 2.5 detik
+                setTimeout(() => {
+                    btnShareText.innerText = "Salin Link Ujian";
+                }, 2500);
+            }).catch(err => {
+                alert("Gagal menyalin link: ", err);
+            });
+        }
+
+        // Event listener dari dashboard pintasan
         window.addEventListener('message', function(event) {
             if (event.data.action === 'pindahMenu') {
                 const targetMenu = event.data.menu;

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modul Absensi Wajah AI - GuruKu</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5; --primary-hover: #4338ca;
+            --success: #10b981; --success-hover: #059669;
+            --danger: #ef4444; --danger-hover: #dc2626;
+            --warning: #f59e0b; --warning-hover: #d97706;
+            --bg-main: #f1f5f9; --text-main: #1e293b;
+            --card-bg: #ffffff; --excel: #15803d;
+            --pdf: #b91c1c; --wa: #25D366; --wa-hover: #128C7E;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body {
+            background-color: var(--bg-main); color: var(--text-main);
+            padding: 16px 16px 100px 16px; display: flex;
+            flex-direction: column; align-items: center; min-height: 100vh;
+        }
+
+        header { width: 100%; max-width: 600px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 4px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        header h1 { font-size: 1.35rem; color: #0f172a; font-weight: 700; text-align: left; }
+        header p { font-size: 0.8rem; color: #64748b; text-align: left; }
+
+        .main-container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 14px; }
+
+        .card {
+            background: var(--card-bg); border-radius: 16px; padding: 16px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); border: 1px solid #e2e8f0;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .panel-hide { display: none !important; }
+
+        .card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: #334155; display: flex; align-items: center; justify-content: space-between; }
+        .badge-count { font-size: 0.75rem; background: #e2e8f0; padding: 2px 8px; border-radius: 20px; color: #475569; }
+
+        .camera-wrapper { position: relative; width: 100%; padding-top: 75%; background: #020617; border-radius: 12px; overflow: hidden; margin-bottom: 12px; transition: all 0.3s ease; }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover; }
+
+        .btn-switch {
+            position: absolute; top: 12px; right: 12px; z-index: 10;
+            background: rgba(15, 23, 42, 0.75); color: white; border: none;
+            width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15); transition: 0.2s; backdrop-filter: blur(4px);
+        }
+
+        .fullscreen-camera { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 1000; padding-top: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+        .fullscreen-camera video, .fullscreen-camera canvas { width: 100vw !important; height: 100vh !important; object-fit: cover; border-radius: 0 !important; }
+        .status-overlay { position: fixed !important; top: 20px; left: 16px; right: 16px; z-index: 1001; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.2) !important; }
+        .btn-switch-overlay { position: fixed !important; top: 85px; right: 16px; z-index: 1001; background: var(--primary) !important; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); }
+
+        #status { font-size: 0.85rem; font-weight: 500; text-align: center; padding: 12px; border-radius: 8px; line-height: 1.4; background: #fef9c3; color: #ca8a04; border: 1px solid #fef08a; transition: all 0.2s;}
+        .log-container { max-height: 100px; overflow-y: auto; background: #f1f5f9; border-radius: 8px; padding: 8px 10px; font-size: 0.8rem; border: 1px solid #e2e8f0; }
+        .log-item { padding: 4px 0; border-bottom: 1px solid #e2e8f0; color: #475569; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;}
+        input[type="text"], input[type="email"], input[type="date"], select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9rem; outline: none; background: #f8fafc; }
+        
+        .btn-full { width: 100%; padding: 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; color: white; transition: 0.2s;}
+        .btn-blue { background-color: var(--primary); }
+        .btn-blue:hover { background-color: var(--primary-hover); }
+        .btn-green { background-color: var(--success); }
+        .btn-green:hover { background-color: var(--success-hover); }
+        .btn-wa { background-color: var(--wa); color: white; }
+        .btn-wa:hover { background-color: var(--wa-hover); }
+        .btn-danger { background-color: var(--danger); }
+
+        .list-container { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .list-nama { font-weight: 600; font-size: 0.9rem; color: #1e293b; }
+        .list-meta { font-size: 0.75rem; color: #64748b; margin-top: 2px;}
+        
+        .btn-action { padding: 5px 8px; font-size: 0.75rem; border-radius: 6px; border: none; color: white; cursor: pointer; }
+
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 70px;
+            background: #ffffff; box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+            display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr 1fr; 
+            align-items: center; justify-items: center; z-index: 1010; border-top: 1px solid #e2e8f0;
+        }
+
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.7rem; font-weight: 600; cursor: pointer; width: 100%; height: 100%; transition: 0.2s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 1.3rem; margin-bottom: 2px; }
+
+        .nav-center {
+            position: relative; top: -20px; width: 64px; height: 64px;
+            background: var(--success); color: white !important; border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); border: 4px solid #ffffff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .nav-center.active-scan { animation: pulse 1.5s infinite; background: var(--danger); }
+        .nav-center .nav-icon { font-size: 1.5rem; margin: 0; }
+        .nav-center span { font-size: 0.65rem; font-weight: 700; margin-top: -2px;}
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        
+        .filter-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; margin-bottom: 12px;}
+        .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;}
+        .wa-box { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-top">
+            <h1>Modul Absensi Wajah AI</h1>
+        </div>
+        <p id="subHeaderText">Terintegrasi dengan Dashboard GuruKu</p>
+    </header>
+
+    <div class="main-container" id="appContent">
+        
+        <div class="card card-panel" id="panelKamera">
+            <div class="camera-wrapper" id="video-container">
+                <video id="video" autoplay muted playsinline></video>
+                <button class="btn-switch" id="btnSwitchCam" onclick="gantiKamera()">🔄</button>
+            </div>
+            <div id="status">Menghubungkan ke sistem...</div>
+            <div class="log-container" id="logAbsen" style="margin-top: 12px;">
+                <div class="log-item" style="color: #94a3b8; text-align: center;">Belum ada aktivitas scan...</div>
+            </div>
+        </div>
+
+        <div class="card card-panel panel-hide" id="panelSetupScan">
+            <div class="card-title">⚙️ Persiapan Absensi Kelas</div>
+            <div class="input-group">
+                <label style="font-size: 0.85rem; font-weight: 600; color: #475569;">Pilih Tanggal Absensi:</label>
+                <input type="date" id="setupTanggal">
+                <label style="font-size: 0.85rem; font-weight: 600; color: #475569;">Pilih Target Kelas:</label>
+                <select id="setupKelas">
+                    <option value="">-- Belum ada data kelas --</option>
+                </select>
+                <label style="font-size: 0.85rem; font-weight: 600; color: #475569;">Mata Pelajaran:</label>
+                <input type="text" id="setupMapel" placeholder="Contoh: Matematika, B. Inggris...">
+                <button class="btn-full btn-green" style="margin-top: 8px;" onclick="mulaiProsesScan()">✨ Mulai Kamera & Scan Kelas</button>
+            </div>
+        </div>
+
+        <div class="card card-panel panel-hide" id="panelRegistrasi">
+            <div class="card-title">📝 Registrasi Wajah Baru</div>
+            <div class="input-group">
+                <input type="text" id="namaSiswa" placeholder="Ketik nama lengkap siswa...">
+                <input type="text" id="kelasSiswa" placeholder="Ketik Kelas (Contoh: 10-A, 11-MIPA-1)...">
+                <button class="btn-full btn-blue" onclick="daftarkanWajah()">👤 Ambil & Simpan Foto</button>
+            </div>
+        </div>
+
+        <div class="card card-panel panel-hide" id="panelDatabase">
+            <div class="card-title">
+                <span>📁 Database Wajah Privat Anda</span>
+                <span class="badge-count" id="totalSiswa">0 Data</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <select id="filterKelasDb" onchange="tampilkanDatabaseSiswa()">
+                    <option value="Semua">Semua Kelas</option>
+                </select>
+            </div>
+            <div class="list-container" id="siswaList"></div>
+        </div>
+
+        <div class="card card-panel panel-hide" id="panelRiwayat">
+            <div class="card-title">📅 Data Riwayat Kehadiran Privat</div>
+            
+            <div class="filter-row">
+                <input type="date" id="filterTanggal" onchange="tampilkanRiwayat()" title="Kosongkan untuk menampilkan semua tanggal">
+                <select id="filterKelas" onchange="tampilkanRiwayat()">
+                    <option value="Semua">Semua Kelas</option>
+                </select>
+                <select id="filterMapel" onchange="tampilkanRiwayat()">
+                    <option value="Semua">Semua Mapel</option>
+                </select>
+            </div>
+
+            <div class="export-row">
+                <button class="btn-full btn-excel" style="padding: 10px; background:#15803d; font-size: 0.85rem;" onclick="eksporKeExcel()">💚 Ekspor Excel</button>
+                <button class="btn-full btn-pdf" style="padding: 10px; background:#b91c1c; font-size: 0.85rem;" onclick="eksporKePDF()">❤️ Ekspor PDF</button>
+            </div>
+
+            <div class="wa-box">
+                <div style="font-size: 0.85rem; font-weight: 700; color: #166534; margin-bottom: 8px;">📱 Ekspor ke WhatsApp</div>
+                
+                <div id="waSetupArea" class="input-group" style="margin-bottom: 0;">
+                    <input type="text" id="waTargetInput" placeholder="Ketik No WA (Misal: 628...) atau Nama Grup...">
+                    <button class="btn-full btn-blue" onclick="kunciWA()">🔒 Kunci Tujuan WA</button>
+                </div>
+
+                <div id="waLockedArea" style="display: none; flex-direction: column; gap: 8px;">
+                    <div style="font-size: 0.8rem; background: #dcfce7; padding: 8px; border-radius: 6px; color: #166534; border: 1px dashed #4ade80;">
+                        Target Terkunci: <b id="lblWaTarget"></b>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-full btn-wa" style="flex: 2; font-size: 0.85rem;" onclick="kirimKeWA()">📲 Kirim ke WhatsApp</button>
+                        <button class="btn-full btn-danger" style="flex: 1; font-size: 0.85rem;" onclick="hapusKunciWA()">🔓 Lepas</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="list-container" id="riwayatList"></div>
+            <button class="btn-full btn-danger" style="margin-top:12px; padding: 10px; font-size: 0.85rem;" onclick="hapusSemuaRiwayat()">🗑️ Hapus Riwayat Anda</button>
+        </div>
+
+    </div>
+
+    <nav class="bottom-nav" id="appNavbar">
+        <div class="nav-item active" id="navHome" onclick="pindahMenu('home')">
+            <span class="nav-icon">🏠</span><span>Beranda</span>
+        </div>
+        <div class="nav-item" id="navReg" onclick="pindahMenu('registrasi')">
+            <span class="nav-icon">📝</span><span>Daftar</span>
+        </div>
+        <div class="nav-item nav-center" id="navScan" onclick="pindahMenu('setup')">
+            <span class="nav-icon" id="scanIcon">✨</span>
+            <span id="scanText">SCAN</span>
+        </div>
+        <div class="nav-item" id="navDb" onclick="pindahMenu('database')">
+            <span class="nav-icon">📁</span><span>Data</span>
+        </div>
+        <div class="nav-item" id="navRiwayat" onclick="pindahMenu('riwayat')">
+            <span class="nav-icon">📅</span><span>Riwayat</span>
+        </div>
+    </nav>
+
+    <script>
+        // --- KONFIGURASI FIREBASE CLOUD FIRESTORE SAJA ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyD0nWqWCqesIXpnSyLK4Aj9n0gPCaSdGGs",
+          authDomain: "absensiwajah-ea3d3.firebaseapp.com",
+          projectId: "absensiwajah-ea3d3",
+          storageBucket: "absensiwajah-ea3d3.firebasestorage.app",
+          messagingSenderId: "1054931924470",
+          appId: "1:1054931924470:web:01d5770b6cedd7bbff03d7"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // --- MENDAPATKAN USER ID DARI DASHBOARD GURUKU ---
+        // Jika GuruKu memanggil: <iframe src="absensi.html?uid=12345">
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentUserUid = urlParams.get('uid') || "GURU_DEMO_DEFAULT"; 
+
+        const video = document.getElementById('video');
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('logAbsen');
+        
+        let tresholdKemiripan = 0.55; 
+        let absensiAktif = false;
+        let faceMatcher = null; 
+        let intervalScan = null;
+        let currentStream = null;
+        let currentFacingMode = "user"; 
+
+        let sesiHariIni = "";
+        let sesiTanggalIni = ""; 
+        let sesiKelasIni = ""; 
+        let sesiMapelIni = "";
+        let siswaTelahAbsenSesiIni = new Set();
+        
+        let localSiswaCached = [];
+        let localRiwayatCached = [];
+        
+        let listenerSiswa = null;
+        let listenerRiwayat = null;
+
+        // VARIABEL WHATSAPP
+        let targetWA = localStorage.getItem("waTarget") || "";
+
+        // --- JALANKAN LANGSUNG KETIKA HALAMAN DIBUKA ---
+        window.onload = () => {
+            initSistemAbsen();
+            initWA();
+        };
+
+        function matikanKameraSistem() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            if(intervalScan) clearInterval(intervalScan);
+        }
+
+        // --- 1. NAVIGASI MENU ---
+        function pindahMenu(menuTarget) {
+            document.querySelectorAll('.card-panel').forEach(el => el.classList.add('panel-hide'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            if (menuTarget === 'home') {
+                document.getElementById('panelKamera').classList.remove('panel-hide');
+                document.getElementById('navHome').classList.add('active');
+            } 
+            else if (menuTarget === 'registrasi') {
+                document.getElementById('panelKamera').classList.remove('panel-hide'); 
+                document.getElementById('panelRegistrasi').classList.remove('panel-hide');
+                document.getElementById('navReg').classList.add('active');
+            } 
+            else if (menuTarget === 'database') {
+                perbaruiDropdownKelasMasterSiswa();
+                tampilkanDatabaseSiswa();
+                document.getElementById('panelDatabase').classList.remove('panel-hide');
+                document.getElementById('navDb').classList.add('active');
+            } 
+            else if (menuTarget === 'riwayat') {
+                perbaruiDropdownFilterRiwayat();
+                tampilkanRiwayat();
+                initWA(); 
+                document.getElementById('panelRiwayat').classList.remove('panel-hide');
+                document.getElementById('navRiwayat').classList.add('active');
+            } 
+            else if (menuTarget === 'setup') {
+                if(absensiAktif) {
+                    hentikanAbsensi(); 
+                    pindahMenu('home');
+                } else {
+                    perbaruiDropdownKelasSetupScan(); 
+                    document.getElementById('panelSetupScan').classList.remove('panel-hide');
+                }
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- 2. INISIALISASI AI, FIREBASE & KAMERA ---
+        async function initSistemAbsen() { 
+            const MODEL_URL = 'https://raw.githack.com/justadudewhohacks/face-api.js/master/weights'; 
+            try {
+                setStatus("⏳ Memuat AI & Sinkronisasi Cloud...", "#fef9c3", "#854d0e");
+                
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                
+                const hariIni = new Date();
+                const yyyy = hariIni.getFullYear();
+                const mm = String(hariIni.getMonth() + 1).padStart(2, '0');
+                const dd = String(hariIni.getDate()).padStart(2, '0');
+                document.getElementById('setupTanggal').value = `${yyyy}-${mm}-${dd}`;
+
+                ambilDataSiswaRealtime();
+                ambilDataRiwayatRealtime();
+                startCamera();
+            } catch (err) {
+                setStatus("❌ Gagal memuat AI: " + err.message, "#fee2e2", "#991b1b");
+            }
+        }
+
+        function ambilDataSiswaRealtime() {
+            if(listenerSiswa) listenerSiswa(); 
+
+            listenerSiswa = db.collection("siswa").where("userId", "==", currentUserUid).onSnapshot((snapshot) => {
+                localSiswaCached = [];
+                snapshot.forEach((doc) => {
+                    let data = doc.data();
+                    localSiswaCached.push({ 
+                        id: doc.id, 
+                        nama: data.nama, 
+                        kelas: data.kelas ? data.kelas.toUpperCase() : "TANPA KELAS", 
+                        descriptor: data.descriptor 
+                    });
+                });
+                document.getElementById('totalSiswa').innerText = `${localSiswaCached.length} Data`;
+                
+                perbaruiDropdownKelasMasterSiswa();
+                perbaruiDropdownKelasSetupScan();
+                
+                if(!document.getElementById('panelDatabase').classList.contains('panel-hide')) {
+                    tampilkanDatabaseSiswa();
+                }
+                setStatus("✅ Modul Siap Digunakan.", "#dcfce7", "#166534");
+            }, err => {
+                setStatus("❌ Error Firebase: " + err.message, "#fee2e2", "#991b1b");
+            });
+        }
+
+        function ambilDataRiwayatRealtime() {
+            if(listenerRiwayat) listenerRiwayat(); 
+
+            listenerRiwayat = db.collection("riwayat")
+                .where("userId", "==", currentUserUid)
+                .onSnapshot((snapshot) => {
+                    localRiwayatCached = [];
+                    snapshot.forEach((doc) => {
+                        let data = doc.data();
+                        localRiwayatCached.push({
+                            id: doc.id, nama: data.nama, kelas: data.kelas ? data.kelas.toUpperCase() : "TANPA KELAS", 
+                            hari: data.hari, mapel: data.mapel, tanggal: data.tanggal, waktu: data.waktu, status: data.status,
+                            timestamp: data.timestamp ? data.timestamp.toMillis() : Date.now()
+                        });
+                    });
+
+                    localRiwayatCached.sort((a, b) => a.timestamp - b.timestamp);
+
+                    perbaruiDropdownFilterRiwayat();
+                    if(!document.getElementById('panelRiwayat').classList.contains('panel-hide')) {
+                        tampilkanRiwayat();
+                    }
+                }, err => {
+                    console.error("Riwayat snapshot error:", err);
+                });
+        }
+
+        async function startCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            const kriteria = { video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } } };
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(kriteria);
+                currentStream = stream;
+                video.srcObject = stream;
+            } catch (err) {
+                setStatus("🚨 Kamera tidak ditemukan atau tidak diizinkan!", "#fee2e2", "#991b1b");
+            }
+        }
+
+        function gantiKamera() {
+            currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+            startCamera();
+        }
+
+        // --- 3. REGISTRASI & MANAGEMENT DROPDOWN KELAS ---
+        async function daftarkanWajah() {
+            const nama = document.getElementById('namaSiswa').value.trim();
+            const kelas = document.getElementById('kelasSiswa').value.trim().toUpperCase();
+            
+            if (!nama || !kelas) return alert("Masukkan nama siswa dan kelas!");
+
+            setStatus("⏳ Memindai wajah...", "#fef9c3", "#854d0e");
+            const deteksi = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+            if (!deteksi) return setStatus("⚠️ Gagal! Wajah tidak terdeteksi.", "#fee2e2", "#991b1b");
+
+            let wajahTerdaftar = localSiswaCached.filter(s => s.kelas === kelas);
+            if (wajahTerdaftar.length > 0) {
+                const labeledTemp = wajahTerdaftar.map(s => new faceapi.LabeledFaceDescriptors(s.nama, [new Float32Array(s.descriptor)]));
+                const matcherTemp = new faceapi.FaceMatcher(labeledTemp, tresholdKemiripan);
+                const cocok = matcherTemp.findBestMatch(deteksi.descriptor);
+                
+                if (cocok.label !== 'unknown') {
+                    setStatus(`❌ Gagal! Wajah sudah terdaftar di kelas ini: "${cocok.label}"`, "#fee2e2", "#991b1b");
+                    alert(`🚨 PENDAFTARAN DITOLAK!\nWajah ini sudah terdaftar di database Kelas ${kelas} Anda sebagai "${cocok.label}".`);
+                    return;
+                }
+            }
+
+            setStatus("☁️ Menyimpan ke Cloud Privat...", "#e0f2fe", "#0369a1");
+            
+            db.collection("siswa").add({
+                userId: currentUserUid,
+                nama: nama,
+                kelas: kelas,
+                descriptor: Array.from(deteksi.descriptor)
+            })
+            .then(() => {
+                setStatus(`🎉 Berhasil mendaftar ke Kelas ${kelas}: ${nama}`, "#dcfce7", "#166534");
+                document.getElementById('namaSiswa').value = "";
+                document.getElementById('kelasSiswa').value = "";
+            })
+            .catch(err => alert("Gagal upload: " + err.message));
+        }
+
+        function perbaruiDropdownKelasMasterSiswa() {
+            let kelasUnik = [...new Set(localSiswaCached.map(item => item.kelas))].sort();
+            let dropdown = document.getElementById('filterKelasDb');
+            let nilaiSekarang = dropdown.value;
+            
+            dropdown.innerHTML = `<option value="Semua">Semua Kelas</option>`;
+            kelasUnik.forEach(k => { dropdown.innerHTML += `<option value="${k}">Kelas ${k}</option>`; });
+            if(kelasUnik.includes(nilaiSekarang)) dropdown.value = nilaiSekarang;
+        }
+
+        function perbaruiDropdownKelasSetupScan() {
+            let kelasUnik = [...new Set(localSiswaCached.map(item => item.kelas))].sort();
+            let dropdown = document.getElementById('setupKelas');
+            let nilaiSekarang = dropdown.value;
+
+            if (kelasUnik.length === 0) {
+                dropdown.innerHTML = `<option value="">-- Belum ada data kelas (Daftar Dulu) --</option>`;
+                return;
+            }
+
+            dropdown.innerHTML = "";
+            kelasUnik.forEach(k => { dropdown.innerHTML += `<option value="${k}">Kelas ${k}</option>`; });
+            if(kelasUnik.includes(nilaiSekarang)) dropdown.value = nilaiSekarang;
+        }
+
+        function tampilkanDatabaseSiswa() {
+            const container = document.getElementById('siswaList');
+            const filterKelas = document.getElementById('filterKelasDb').value;
+
+            let dataTerfilter = localSiswaCached.filter(s => (filterKelas === "Semua") || (s.kelas === filterKelas));
+
+            if (dataTerfilter.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.85rem;">Tidak ada data siswa di kelas ini.</div>`;
+                return;
+            }
+            container.innerHTML = dataTerfilter.map((siswa) => `
+                <div class="list-item">
+                    <div>
+                        <div class="list-nama">${siswa.nama}</div>
+                        <div class="list-meta">Kelas: <b>${siswa.kelas}</b> | ID: ${siswa.id.substring(0,6)}...</div>
+                    </div>
+                    <button class="btn-action btn-danger" onclick="hapusSiswa('${siswa.id}', '${siswa.nama}')">Hapus</button>
+                </div>
+            `).join('');
+        }
+
+        function hapusSiswa(id, nama) {
+            if (confirm(`Hapus permanen data ${nama} dari Database Anda?`)) {
+                db.collection("siswa").doc(id).delete()
+                .catch(err => alert("Gagal menghapus: " + err.message));
+            }
+        }
+
+        function buatFaceMatcherSpesifikKelas(kelasTarget) {
+            let siswaKelasTarget = localSiswaCached.filter(s => s.kelas === kelasTarget);
+            if (siswaKelasTarget.length === 0) { faceMatcher = null; return false; }
+            
+            const labeled = siswaKelasTarget.map(s => new faceapi.LabeledFaceDescriptors(s.nama, [new Float32Array(s.descriptor)]));
+            faceMatcher = new faceapi.FaceMatcher(labeled, tresholdKemiripan);
+            return true;
+        }
+
+        // --- 4. ENGINE SCAN ABSENSI ---
+        function mulaiProsesScan() {
+            const rawTanggal = document.getElementById('setupTanggal').value;
+            if(!rawTanggal) return alert("Pilih tanggal pelaksanaan absensi terlebih dahulu!");
+
+            const dateObj = new Date(rawTanggal + "T00:00:00");
+            sesiTanggalIni = dateObj.toLocaleDateString('id-ID'); 
+            sesiHariIni = dateObj.toLocaleDateString('id-ID', { weekday: 'long' }); 
+
+            sesiKelasIni = document.getElementById('setupKelas').value;
+            sesiMapelIni = document.getElementById('setupMapel').value.trim();
+
+            if(!sesiKelasIni) return alert("Pilih target kelas terlebih dahulu!");
+            if(!sesiMapelIni) return alert("Harap isi nama Mata Pelajaran terlebih dahulu!");
+            
+            let adaSiswa = buatFaceMatcherSpesifikKelas(sesiKelasIni);
+            if (!adaSiswa) return alert(`Gagal memuat AI. Tidak ditemukan siswa di Kelas ${sesiKelasIni}.`);
+
+            siswaTelahAbsenSesiIni.clear(); 
+            pindahMenu('home'); 
+
+            absensiAktif = true;
+            
+            const navScan = document.getElementById('navScan');
+            navScan.classList.add('active-scan');
+            document.getElementById('scanIcon').innerText = "⏹️";
+            document.getElementById('scanText').innerText = "STOP";
+
+            document.getElementById('video-container').classList.add('fullscreen-camera');
+            document.getElementById('status').classList.add('status-overlay');
+            document.getElementById('btnSwitchCam').classList.add('btn-switch-overlay');
+
+            setStatus(`🔍 SCAN ONLINE | KELAS ${sesiKelasIni} | ${sesiMapelIni}`, "#e0f2fe", "#0369a1");
+
+            const oldCanvas = document.querySelector('canvas');
+            if(oldCanvas) oldCanvas.remove();
+
+            const canvas = faceapi.createCanvasFromMedia(video);
+            document.getElementById('video-container').appendChild(canvas);
+            const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            intervalScan = setInterval(async () => {
+                if (!absensiAktif) return;
+                const currentSize = { width: video.offsetWidth, height: video.offsetHeight };
+                faceapi.matchDimensions(canvas, currentSize);
+
+                const deteksi = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                const resized = faceapi.resizeResults(deteksi, currentSize);
+                faceapi.draw.drawDetections(canvas, resized);
+
+                if(faceMatcher) {
+                    resized.forEach(d => {
+                        const cocok = faceMatcher.findBestMatch(d.descriptor);
+                        if (cocok.label !== 'unknown') {
+                            catatKehadiran(cocok.label);
+                        }
+                    });
+                }
+            }, 1000);
+        }
+
+        async function hentikanAbsensi() {
+            absensiAktif = false;
+            clearInterval(intervalScan);
+            
+            const oldCanvas = document.querySelector('canvas');
+            if(oldCanvas) oldCanvas.remove();
+
+            const navScan = document.getElementById('navScan');
+            navScan.classList.remove('active-scan');
+            document.getElementById('scanIcon').innerText = "✨";
+            document.getElementById('scanText').innerText = "SCAN";
+            
+            document.getElementById('video-container').classList.remove('fullscreen-camera');
+            document.getElementById('status').classList.remove('status-overlay');
+            document.getElementById('btnSwitchCam').classList.remove('btn-switch-overlay');
+
+            if (sesiTanggalIni && sesiKelasIni && sesiMapelIni) {
+                let tanggal = sesiTanggalIni;
+                let batch = db.batch();
+                let counterTidakHadir = 0;
+
+                setStatus("☁️ Menyusun Rekap Absensi Penuh...", "#fef9c3", "#854d0e");
+
+                let siswaKelasIni = localSiswaCached.filter(s => s.kelas === sesiKelasIni);
+
+                siswaKelasIni.forEach(siswa => {
+                    let dataAda = localRiwayatCached.some(item => 
+                        item.nama === siswa.nama && item.kelas === sesiKelasIni && item.hari === sesiHariIni && 
+                        item.mapel === sesiMapelIni && item.tanggal === tanggal
+                    );
+
+                    if (!dataAda) {
+                        let docRef = db.collection("riwayat").doc();
+                        batch.set(docRef, {
+                            userId: currentUserUid, 
+                            nama: siswa.nama, kelas: sesiKelasIni, hari: sesiHariIni, mapel: sesiMapelIni, tanggal: tanggal,
+                            waktu: "-", status: "Tidak Hadir", timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        counterTidakHadir++;
+                    }
+                });
+
+                if(counterTidakHadir > 0) await batch.commit();
+
+                let dataSesiIni = localRiwayatCached.filter(item => item.hari === sesiHariIni && item.kelas === sesiKelasIni && item.mapel === sesiMapelIni && item.tanggal === tanggal);
+                let totalHadir = dataSesiIni.filter(item => item.status === "Hadir").length;
+                let totalTerlambat = dataSesiIni.filter(item => item.status === "Terlambat").length;
+                let totalAbsen = dataSesiIni.filter(item => item.status === "Tidak Hadir").length;
+
+                setStatus(`✅ Sesi Selesai. Hadir: ${totalHadir}, Terlambat: ${totalTerlambat}`, "#dcfce7", "#166534");
+                alert(`Sesi Absensi Kelas ${sesiKelasIni} Ditutup!\n\nRekap Kelas:\n- Hadir: ${totalHadir} anak\n- Terlambat: ${totalTerlambat} anak\n- Tidak Hadir: ${totalAbsen} anak.`);
+            }
+        }
+
+        function catatKehadiran(namaSiswa) {
+            if(siswaTelahAbsenSesiIni.has(namaSiswa)) return; 
+            
+            let tanggal = sesiTanggalIni;
+            let waktu = new Date().toLocaleTimeString('id-ID');
+
+            let dataLamaSiswa = localRiwayatCached.find(item => 
+                item.nama === namaSiswa && item.kelas === sesiKelasIni && item.hari === sesiHariIni && 
+                item.mapel === sesiMapelIni && item.tanggal === tanggal
+            );
+
+            if (dataLamaSiswa) {
+                if (dataLamaSiswa.status === "Tidak Hadir") {
+                    db.collection("riwayat").doc(dataLamaSiswa.id).update({ waktu: waktu, status: "Terlambat" });
+                    setStatus(`⚠️ TERLAMBAT: ${namaSiswa}`, "#ffedd5", "#c2410c");
+                    if(logDiv.innerText.includes("Belum ada")) logDiv.innerHTML = "";
+                    logDiv.innerHTML = `<div class="log-item" style="color: #c2410c;"><b>${waktu}</b> - ⚠️ ${namaSiswa} (Terlambat)</div>` + logDiv.innerHTML;
+                }
+            } else {
+                db.collection("riwayat").add({
+                    userId: currentUserUid, 
+                    nama: namaSiswa, kelas: sesiKelasIni, hari: sesiHariIni, mapel: sesiMapelIni, tanggal: tanggal, waktu: waktu, status: "Hadir",
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                setStatus(`✅ HADIR: ${namaSiswa}`, "#dcfce7", "#166534");
+                if(logDiv.innerText.includes("Belum ada")) logDiv.innerHTML = "";
+                logDiv.innerHTML = `<div class="log-item"><b>${waktu}</b> - ${namaSiswa} (Kelas ${sesiKelasIni})</div>` + logDiv.innerHTML;
+            }
+            siswaTelahAbsenSesiIni.add(namaSiswa);
+        }
+
+        // --- 5. FILTER MULTI-LEVEL, TAMPILAN & UTILITY ---
+        function setStatus(pesan, bg, color) {
+            statusDiv.innerText = pesan; statusDiv.style.background = bg; statusDiv.style.color = color;
+        }
+
+        function perbaruiDropdownFilterRiwayat() {
+            let kelasUnik = [...new Set(localRiwayatCached.map(item => item.kelas))].sort();
+            let mapelUnik = [...new Set(localRiwayatCached.map(item => item.mapel))].sort();
+            
+            let dropKelas = document.getElementById('filterKelas');
+            let dropMapel = document.getElementById('filterMapel');
+            
+            let valKelas = dropKelas.value;
+            let valMapel = dropMapel.value;
+            
+            dropKelas.innerHTML = `<option value="Semua">Semua Kelas</option>`;
+            kelasUnik.forEach(k => { dropKelas.innerHTML += `<option value="${k}">Kelas ${k}</option>`; });
+            
+            dropMapel.innerHTML = `<option value="Semua">Semua Mapel</option>`;
+            mapelUnik.forEach(m => { dropMapel.innerHTML += `<option value="${m}">${m}</option>`; });
+            
+            if(kelasUnik.includes(valKelas)) dropKelas.value = valKelas;
+            if(mapelUnik.includes(valMapel)) dropMapel.value = valMapel;
+        }
+
+        function dapatkanDataTerfilter() {
+            let filterTglRaw = document.getElementById('filterTanggal').value;
+            let filterKelas = document.getElementById('filterKelas').value;
+            let filterMapel = document.getElementById('filterMapel').value;
+            
+            let filterTanggalIndo = "Semua";
+            if(filterTglRaw) {
+                filterTanggalIndo = new Date(filterTglRaw + "T00:00:00").toLocaleDateString('id-ID');
+            }
+            
+            return localRiwayatCached.filter(item => {
+                let cocokTanggal = (filterTanggalIndo === "Semua") || (item.tanggal === filterTanggalIndo);
+                let cocokKelas = (filterKelas === "Semua") || (item.kelas === filterKelas);
+                let cocokMapel = (filterMapel === "Semua") || (item.mapel === filterMapel);
+                return cocokTanggal && cocokKelas && cocokMapel;
+            });
+        }
+
+        function tampilkanRiwayat() {
+            let dataTampil = dapatkanDataTerfilter();
+            const container = document.getElementById('riwayatList');
+            let dataSalinan = [...dataTampil].reverse(); 
+
+            if (dataSalinan.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.85rem; padding: 20px 0;">Tidak ada data riwayat absensi.</div>`;
+                return;
+            }
+
+            container.innerHTML = dataSalinan.map(item => {
+                let badgeStyle = item.status === "Hadir" ? "background:#e0e7ff; color:#4f46e5;" : (item.status === "Terlambat" ? "background:#ffedd5; color:#c2410c;" : "background:#fee2e2; color:#ef4444;");
+                let borderStyle = item.status === "Hadir" ? "border-left:4px solid var(--success);" : (item.status === "Terlambat" ? "border-left:4px solid var(--warning);" : "border-left:4px solid var(--danger);");
+
+                return `
+                    <div class="list-item" style="${borderStyle}">
+                        <div>
+                            <div class="list-nama">👤 ${item.nama}</div>
+                            <div class="list-meta">${item.hari}, ${item.tanggal} | Jam: ${item.waktu}</div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                            <span style="font-size:0.75rem; background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:4px; font-weight:600;">Kelas ${item.kelas} - ${item.mapel}</span>
+                            <span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:700; ${badgeStyle}">${item.status.toUpperCase()}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 6. EKSPOR KE WHATSAPP, EXCEL, DAN PDF ---
+
+        function initWA() {
+            if(targetWA) {
+                document.getElementById('waSetupArea').style.display = 'none';
+                document.getElementById('waLockedArea').style.display = 'flex';
+                document.getElementById('lblWaTarget').innerText = targetWA;
+            } else {
+                document.getElementById('waSetupArea').style.display = 'flex';
+                document.getElementById('waLockedArea').style.display = 'none';
+            }
+        }
+
+        function kunciWA() {
+            const inputTarget = document.getElementById('waTargetInput').value.trim();
+            if(!inputTarget) return alert("Harap masukkan Nomor HP (Misal: 628...) atau Nama Grup terlebih dahulu!");
+            
+            targetWA = inputTarget;
+            localStorage.setItem("waTarget", targetWA);
+            initWA();
+        }
+
+        function hapusKunciWA() {
+            targetWA = "";
+            localStorage.removeItem("waTarget");
+            document.getElementById('waTargetInput').value = "";
+            initWA();
+        }
+
+        function kirimKeWA() {
+            let dataEkspor = dapatkanDataTerfilter();
+            if (dataEkspor.length === 0) return alert("Tidak ada data riwayat untuk dikirim! Pastikan filter sudah benar.");
+
+            let hadir = dataEkspor.filter(i => i.status === "Hadir");
+            let terlambat = dataEkspor.filter(i => i.status === "Terlambat");
+            let tidakHadir = dataEkspor.filter(i => i.status === "Tidak Hadir");
+
+            let filterTglRaw = document.getElementById('filterTanggal').value;
+            let infoTanggal = filterTglRaw ? new Date(filterTglRaw + "T00:00:00").toLocaleDateString('id-ID') : dataEkspor[0].tanggal;
+            let infoHari = filterTglRaw ? new Date(filterTglRaw + "T00:00:00").toLocaleDateString('id-ID', { weekday: 'long' }) : dataEkspor[0].hari;
+            let filterKelasInfo = document.getElementById('filterKelas').value;
+
+            let txt = `*REKAPITULASI ABSENSI KELAS*\n`;
+            
+            let isNumberOnly = /^\d+$/.test(targetWA);
+            if(!isNumberOnly) txt += `*Tujuan Grup:* ${targetWA}\n`;
+            
+            txt += `*Hari/Tgl:* ${infoHari}, ${infoTanggal}\n`;
+            txt += `*Kelas:* ${filterKelasInfo !== "Semua" ? filterKelasInfo : "Gabungan"}\n\n`;
+
+            txt += `*✅ HADIR (${hadir.length} Siswa):*\n`;
+            if (hadir.length === 0) txt += `- Kosong\n`;
+            hadir.forEach(i => txt += `- ${i.nama} (${i.waktu})\n`);
+            
+            txt += `\n*⚠️ TERLAMBAT (${terlambat.length} Siswa):*\n`;
+            if (terlambat.length === 0) txt += `- Kosong\n`;
+            terlambat.forEach(i => txt += `- ${i.nama} (${i.waktu})\n`);
+
+            txt += `\n*❌ TIDAK HADIR (${tidakHadir.length} Siswa):*\n`;
+            if (tidakHadir.length === 0) txt += `- Kosong\n`;
+            tidakHadir.forEach(i => txt += `- ${i.nama}\n`);
+
+            txt += `\n_Digenerate otomatis oleh Sistem Absensi AI._`;
+
+            let pesanEncoded = encodeURIComponent(txt);
+            let urlWA = "";
+
+            if(isNumberOnly) {
+                let nomorTelp = targetWA;
+                if(nomorTelp.startsWith('0')) nomorTelp = '62' + nomorTelp.substring(1);
+                urlWA = `https://wa.me/${nomorTelp}?text=${pesanEncoded}`;
+            } else {
+                urlWA = `https://api.whatsapp.com/send?text=${pesanEncoded}`;
+            }
+
+            window.open(urlWA, '_blank');
+        }
+
+        function eksporKeExcel() {
+            let dataEkspor = dapatkanDataTerfilter();
+            if (dataEkspor.length === 0) return alert("Tidak ada data riwayat untuk diekspor!");
+
+            let dataFormatted = dataEkspor.map((item, index) => ({
+                "No": index + 1, "Hari": item.hari, "Tanggal": item.tanggal, "Kelas": item.kelas, "Mata Pelajaran": item.mapel,
+                "Nama Siswa": item.nama, "Jam Scan Wajah": item.waktu, "Status Keterangan": item.status
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(dataFormatted);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Absensi");
+            XLSX.writeFile(workbook, `Laporan_Absensi_Kelas.xlsx`);
+        }
+
+        function eksporKePDF() {
+            let dataEkspor = dapatkanDataTerfilter();
+            if (dataEkspor.length === 0) return alert("Tidak ada data riwayat untuk diekspor!");
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFont("Helvetica", "bold"); doc.setFontSize(14);
+            doc.text("LAPORAN REKAPITULASI ABSENSI PRIVAT KELAS", 14, 15);
+
+            let barisTabel = dataEkspor.map((item, index) => [index + 1, item.hari, item.tanggal, item.kelas, item.mapel, item.nama, item.waktu, item.status]);
+            doc.autoTable({
+                head: [['No', 'Hari', 'Tanggal', 'Kelas', 'Mata Pelajaran', 'Nama Lengkap', 'Jam Scan', 'Status']],
+                body: barisTabel, startY: 24, styles: { fontSize: 8.5 }, headStyles: { fillColor: [79, 70, 229] }
+            });
+            doc.save(`Laporan_Absensi_Kelas.pdf`);
+        }
+
+        async function hapusSemuaRiwayat() {
+            if(confirm("Yakin ingin mengosongkan seluruh data riwayat Anda di Cloud secara permanen? Data milik guru lain atau data master siswa tidak akan terpengaruh.")) {
+                let batch = db.batch();
+                let querySnapshot = await db.collection("riwayat").where("userId", "==", currentUserUid).get();
+                querySnapshot.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                alert("Seluruh riwayat privat Anda berhasil dibersihkan!");
+            }
+        }
+    </script>
+</body>
+</html>

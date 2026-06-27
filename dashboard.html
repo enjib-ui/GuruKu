@@ -28,10 +28,11 @@
         .green { background: #dcfce7; color: #15803d; }
         .orange { background: #ffedd5; color: #d97706; }
         
-        .main-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
+        /* Ubah tata letak menjadi 2 kolom sama besar */
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } }
         
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); border: 1px solid #e2e8f0; margin-bottom: 20px; height: fit-content; }
         .card-title { font-size: 1rem; font-weight: 600; color: #0f172a; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
         
         .class-attendance-list { display: flex; flex-direction: column; gap: 14px; }
@@ -47,31 +48,11 @@
         .schedule-time { font-size: 0.85rem; font-weight: 600; color: #00b4d8; width: 110px; }
         .schedule-details h4 { font-size: 0.9rem; color: #1e293b; font-weight: 500; }
         .schedule-details p { font-size: 0.75rem; color: #64748b; }
-        
-        .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
-        .action-btn { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 15px; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.2s; text-decoration: none; color: #475569; }
-        .action-btn:hover { background: #00b4d8; color: white; border-color: #00b4d8; transform: translateY(-2px); }
-        .action-btn i { font-size: 1.4rem; margin-bottom: 8px; display: block; }
-        .action-btn span { font-size: 0.85rem; font-weight: 500; }
-
-        .sub-page { display: none; }
-        .sub-page.active { display: block; }
-
-        /* Form Kelola Jadwal */
-        .form-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr; gap: 10px; margin-bottom: 12px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; align-items: center; }
-        @media (max-width: 576px) { .form-row { grid-template-columns: 1fr; } }
-        input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; font-family: inherit; }
-        .btn { padding: 10px 16px; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: white; transition: 0.2s; }
-        .btn-blue { background: #00b4d8; } .btn-blue:hover { background: #0096b4; }
-        .btn-danger { background: #ef4444; padding: 10px; } .btn-danger:hover { background: #dc2626; }
-        .btn-success { background: #10b981; } .btn-success:hover { background: #059669; }
-        .day-section { margin-bottom: 25px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 15px; }
-        .day-title { font-size: 1rem; font-weight: 600; color: #0369a1; background: #e0f2fe; padding: 6px 12px; border-radius: 6px; display: inline-block; margin-bottom: 12px; }
     </style>
 </head>
 <body>
 
-    <div id="sub-dashboard" class="sub-page active">
+    <div id="sub-dashboard">
         <div class="welcome-box">
             <h1 id="salam">Selamat Mengajar, Bapak/Ibu Guru!</h1>
             <p>Aplikasi GuruKu siap membantu manajemen kelas Anda hari ini.</p>
@@ -93,53 +74,22 @@
         </div>
 
         <div class="main-grid">
-            <div class="left-column">
-                <div class="card">
-                    <div class="card-title"><i class="fas fa-chart-pie" style="color:#4f46e5;"></i> Kehadiran Per Kelas Hari Ini</div>
-                    <div class="class-attendance-list" id="listKehadiranKelas">
-                        <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 10px 0;">Mencari data kelas...</div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-title">
-                        <i class="fas fa-calendar-day" style="color:#00b4d8;"></i> 
-                        Jadwal Mengajar Hari Ini (<span id="lblHariIni">-</span>)
-                    </div>
-                    <div class="schedule-list" id="listJadwalHariIni">
-                        <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 15px 0;">Tidak ada jadwal mengajar untuk hari ini.</div>
-                    </div>
+            <div class="card">
+                <div class="card-title"><i class="fas fa-chart-pie" style="color:#4f46e5;"></i> Kehadiran Per Kelas Hari Ini</div>
+                <div class="class-attendance-list" id="listKehadiranKelas">
+                    <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 10px 0;">Mencari data kelas...</div>
                 </div>
             </div>
 
-            <div class="right-column">
-                <div class="card">
-                    <div class="card-title"><i class="fas fa-bolt" style="color:#eab308;"></i> Akses Cepat</div>
-                    <div class="quick-actions">
-                        <div class="action-btn" onclick="bukaFiturUtama('absensi')">
-                            <i class="fas fa-user-check"></i>
-                            <span>Scan Absen</span>
-                        </div>
-                        <div class="action-btn" onclick="bukaFiturUtama('soal')">
-                            <i class="fas fa-pen-to-square"></i>
-                            <span>Buat Soal</span>
-                        </div>
-                    </div>
-                    <button class="btn btn-blue" style="width: 100%; justify-content: center;" onclick="bukaFiturUtama('jadwal')">
-                        <i class="fas fa-calendar-alt"></i> Kelola Master Jadwal
-                    </button>
+            <div class="card">
+                <div class="card-title">
+                    <i class="fas fa-calendar-day" style="color:#00b4d8;"></i> 
+                    Jadwal Mengajar Hari Ini (<span id="lblHariIni">-</span>)
+                </div>
+                <div class="schedule-list" id="listJadwalHariIni">
+                    <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 15px 0;">Tidak ada jadwal mengajar untuk hari ini.</div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div id="sub-jadwal" class="sub-page">
-        <div class="card">
-            <div class="card-title" style="justify-content: space-between;">
-                <span><i class="fas fa-edit" style="color:#00b4d8;"></i> Atur Jadwal Mengajar (Senin - Sabtu)</span>
-                <button class="btn btn-success" onclick="simpanSemuaJadwal()"><i class="fas fa-save"></i> Simpan Perubahan</button>
-            </div>
-            <div id="wrapper-input-jadwal"></div>
         </div>
     </div>
 
@@ -157,8 +107,8 @@
         const db = firebase.firestore();
 
         let dataSiswaGlobal = [];
-        const namaHariDaftar = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         
+        // Data jadwal default yang statis
         const defaultJadwalMaster = {
             "Senin": [{ jam: "07:00 - 08:30", mapel: "Matematika Wajib", kelas: "XI-RPL 1", ruang: "Ruang 10" }],
             "Selasa": [{ jam: "09:00 - 10:30", mapel: "Fisika Dasar", kelas: "XI-RPL 1", ruang: "Laboratorium Komputer" }],
@@ -166,86 +116,6 @@
         };
 
         let jadwalMengajarMaster = JSON.parse(localStorage.getItem("guruJadwalMaster")) || defaultJadwalMaster;
-
-        // Memeriksa parameter URL untuk menentukan halaman mana yang aktif
-        const urlParams = new URLSearchParams(window.location.search);
-        const viewParam = urlParams.get('view');
-        if (viewParam === 'jadwal') {
-            document.getElementById('sub-dashboard').classList.remove('active');
-            document.getElementById('sub-jadwal').classList.add('active');
-        } else {
-            document.getElementById('sub-jadwal').classList.remove('active');
-            document.getElementById('sub-dashboard').classList.add('active');
-        }
-
-        function renderFormKelolaJadwal() {
-            const container = document.getElementById('wrapper-input-jadwal');
-            container.innerHTML = "";
-
-            namaHariDaftar.forEach(hari => {
-                let htmlRows = "";
-                const listMapelHariIni = jadwalMengajarMaster[hari] || [];
-
-                listMapelHariIni.forEach((item, index) => {
-                    htmlRows += `
-                        <div class="form-row" id="row-${hari}-${index}">
-                            <input type="text" placeholder="Contoh: 07:00 - 08:30" value="${item.jam}" data-field="jam">
-                            <input type="text" placeholder="Nama Mata Pelajaran" value="${item.mapel}" data-field="mapel">
-                            <input type="text" placeholder="Kelas" value="${item.kelas}" data-field="kelas">
-                            <div style="display: flex; gap: 8px; width: 100%;">
-                                <input type="text" placeholder="Ruang / Lab" value="${item.ruang}" data-field="ruang">
-                                <button class="btn btn-danger" onclick="hapusBarisJadwal('${hari}', ${index})"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                container.innerHTML += `
-                    <div class="day-section">
-                        <div class="day-title">${hari}</div>
-                        <div id="rows-container-${hari}">${htmlRows}</div>
-                        <button class="btn btn-blue" style="padding: 6px 12px; font-size:0.75rem; margin-top: 5px;" onclick="tambahBarisBaru('${hari}')">
-                            <i class="fas fa-plus"></i> Tambah Jam
-                        </button>
-                    </div>
-                `;
-            });
-        }
-
-        function tambahBarisBaru(hari) {
-            if (!jadwalMengajarMaster[hari]) jadwalMengajarMaster[hari] = [];
-            jadwalMengajarMaster[hari].push({ jam: "", mapel: "", kelas: "", ruang: "" });
-            renderFormKelolaJadwal();
-        }
-
-        function hapusBarisJadwal(hari, index) {
-            jadwalMengajarMaster[hari].splice(index, 1);
-            renderFormKelolaJadwal();
-        }
-
-        function simpanSemuaJadwal() {
-            namaHariDaftar.forEach(hari => {
-                const section = document.getElementById(`rows-container-${hari}`);
-                const rows = section.querySelectorAll('.form-row');
-                const arrayBaru = [];
-
-                rows.forEach(row => {
-                    const jam = row.querySelector('[data-field="jam"]').value.trim();
-                    const mapel = row.querySelector('[data-field="mapel"]').value.trim();
-                    const kelas = row.querySelector('[data-field="kelas"]').value.trim();
-                    const ruang = row.querySelector('[data-field="ruang"]').value.trim();
-
-                    if(jam || mapel || kelas) {
-                        arrayBaru.push({ jam, mapel, kelas, ruang });
-                    }
-                });
-                jadwalMengajarMaster[hari] = arrayBaru;
-            });
-
-            localStorage.setItem("guruJadwalMaster", JSON.stringify(jadwalMengajarMaster));
-            alert("✨ Sukses! Jadwal berhasil diperbarui.");
-            bukaFiturUtama('dashboard');
-        }
 
         function muatJadwalHariIni() {
             const hariSistemIndo = new Date().toLocaleDateString('id-ID', { weekday: 'long' });
@@ -343,11 +213,6 @@
 
         initDashboardRealtime();
         muatJadwalHariIni();
-        renderFormKelolaJadwal();
-
-        function bukaFiturUtama(targetMenu) {
-            window.parent.postMessage({ action: 'pindahMenu', menu: targetMenu }, '*');
-        }
 
         const jam = new Date().getHours();
         const salamTxt = document.getElementById('salam');

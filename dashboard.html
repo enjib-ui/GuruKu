@@ -118,9 +118,9 @@
         let totalSiswaDatabase = 0;
 
         function hitungStatistikDashboard() {
-            // 1 & 2. Mengambil Total Siswa dan Kelas
-            // GANTI MENJADI INI:
+            // KODE BARU (Membaca semua siswa tanpa filter ID):
 db.collection("siswa").onSnapshot((snapshot) => {
+    
                 totalSiswaDatabase = snapshot.size;
                 document.getElementById('txtTotalSiswa').innerText = totalSiswaDatabase + " Siswa";
 
@@ -146,9 +146,11 @@ db.collection("siswa").onSnapshot((snapshot) => {
             const tanggalHariIni = new Date().toLocaleDateString('id-ID'); 
 
             // 3. Menghitung Persentase Kehadiran dari Koleksi Riwayat
-            db.collection("riwayat")
+            
+db.collection("riwayat")
   .where("tanggal", "==", tanggalHariIni)
   .onSnapshot((snapshot) => {
+      
                 let totalHadir = 0;
                 snapshot.forEach(doc => {
                     const status = doc.data().status;

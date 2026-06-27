@@ -110,9 +110,7 @@
     </div>
 
     <script>
-        // ========================================================
-        // KONFIGURASI FIREBASE BERHASIL DISINKRONKAN
-        // ========================================================
+        // KONFIGURASI FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyD0nWqWCqesIXpnSyLK4Aj9n0gPCaSdGGs",
             authDomain: "absensiwajah-ea3d3.firebaseapp.com",
@@ -120,7 +118,6 @@
             storageBucket: "absensiwajah-ea3d3.firebasestorage.app",
             messagingSenderId: "1054931924470",
             appId: "1:1054931924470:web:01d5770b6cedd7bbff03d7",
-            // Menggunakan Endpoint URL default untuk projek absensiwajah-ea3d3
             databaseURL: "https://absensiwajah-ea3d3-default-rtdb.firebaseio.com"
         };
         
@@ -132,9 +129,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const USER_UID = urlParams.get('uid') || "GURU_DEMO_123";
 
-        // ========================================================
         // LOGIKA AMBIL DATA REALTIME DARI DATABASE FIREBASE
-        // ========================================================
         function hitungStatistikDashboard() {
             const siswaRef = database.ref('siswa');
 
@@ -144,11 +139,11 @@
                     const dataSiswa = snapshot.val();
                     const arraySiswa = Object.values(dataSiswa);
 
-                    // A. Tampilkan Total Siswa
+                    // A. Tampilkan Total Siswa secara dinamis
                     const totalSiswa = arraySiswa.length;
                     document.getElementById('txtTotalSiswa').innerText = totalSiswa + " Siswa";
 
-                    // B. Hitung Kelas Aktif secara otomatis (mencegah duplikasi nama kelas)
+                    // B. Hitung Jumlah Kelas Unik berdasarkan database siswa
                     const daftarKelasUnik = new Set();
                     arraySiswa.forEach(siswa => {
                         if (siswa.kelas) {
@@ -157,7 +152,7 @@
                     });
                     document.getElementById('txtKelasAktif').innerText = daftarKelasUnik.size + " Kelas";
 
-                    // C. Hitung Kehadiran Realtime Hari Ini (Format: YYYY-MM-DD lokal)
+                    // C. Hitung Kehadiran Realtime Hari Ini berdasarkan input kode absensi.html
                     const hariIni = new Date().toLocaleDateString('en-CA'); 
                     const absensiRef = database.ref(`absensi/${hariIni}`);
 
@@ -166,20 +161,21 @@
                         if (absenSnapshot.exists()) {
                             const dataAbsen = absenSnapshot.val();
                             Object.values(dataAbsen).forEach(absen => {
-                                // Validasi pengenalan wajah: jika ada log waktu masuk atau status bernilai positif
-                                if (absen.waktu || absen.status === 'Hadir' || absen.status === 'Masuk') {
+                                // KESESUAIAN LOGIKA DENGAN KODE ABSENSI.HTML:
+                                // Hanya hitung jika status berisi kata 'Hadir' atau 'Masuk'
+                                // Serta pastikan string waktu bukan penampung kosong ("--")
+                                if ((absen.status === 'Hadir' || absen.status === 'Masuk') && absen.waktu !== '--') {
                                     totalHadir++;
                                 }
                             });
                         }
 
-                        // Menghitung Rumus Persentase Kehadiran Kelas
+                        // Menghitung Persentase Kehadiran Kelas secara real-time
                         const persentase = totalSiswa > 0 ? Math.round((totalHadir / totalSiswa) * 100) : 0;
                         document.getElementById('txtHadirHariIni').innerText = persentase + "%";
                     });
 
                 } else {
-                    // Penanganan jika node data siswa di firebase Anda masih kosong
                     document.getElementById('txtTotalSiswa').innerText = "0 Siswa";
                     document.getElementById('txtKelasAktif').innerText = "0 Kelas";
                     document.getElementById('txtHadirHariIni').innerText = "0%";

@@ -118,54 +118,59 @@
         let totalSiswaDatabase = 0;
 
         function hitungStatistikDashboard() {
-            // KODE BARU (Membaca semua siswa tanpa filter ID):
-db.collection("siswa").onSnapshot((snapshot) => {
-    
-                totalSiswaDatabase = snapshot.size;
-                document.getElementById('txtTotalSiswa').innerText = totalSiswaDatabase + " Siswa";
-
-                const daftarKelasUnik = new Set();
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.kelas) {
-                        daftarKelasUnik.add(data.kelas.toUpperCase().trim());
-                    }
-                });
-                document.getElementById('txtKelasAktif').innerText = daftarKelasUnik.size + " Kelas";
-                
-                hitungKehadiranHariIni(); // Panggil hitung absen setiap kali data siswa berubah
-            }, (error) => {
-                console.error("Gagal memuat siswa:", error);
-                document.getElementById('txtTotalSiswa').innerText = "Error";
-                document.getElementById('txtKelasAktif').innerText = "Error";
-            });
+    // Membaca koleksi siswa secara utuh tanpa filter userId/usId
+    db.collection("siswa").onSnapshot((snapshot) => {
+        // Jika database kosong, langsung set ke 0
+        if (snapshot.empty) {
+            document.getElementById('txtTotalSiswa').innerText = "0 Siswa";
+            document.getElementById('txtKelasAktif').innerText = "0 Kelas";
+            document.getElementById('txtHadirHariIni').innerText = "0%";
+            return;
         }
 
-        function hitungKehadiranHariIni() {
-            // Format tanggal yang digunakan oleh kode absensi.html Anda (id-ID)
-            const tanggalHariIni = new Date().toLocaleDateString('id-ID'); 
+        let totalSiswaDatabase = snapshot.size;
+        document.getElementById('txtTotalSiswa').innerText = totalSiswaDatabase + " Siswa";
 
-            // 3. Menghitung Persentase Kehadiran dari Koleksi Riwayat
-            
-db.collection("riwayat")
-  .where("tanggal", "==", tanggalHariIni)
-  .onSnapshot((snapshot) => {
-      
-                let totalHadir = 0;
-                snapshot.forEach(doc => {
-                    const status = doc.data().status;
-                    if (status === 'Hadir' || status === 'Terlambat') {
-                        totalHadir++;
-                    }
-                });
+        const daftarKelasUnik = new Set();
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.kelas) {
+                daftarKelasUnik.add(data.kelas.toUpperCase().trim());
+            }
+        });
+        document.getElementById('txtKelasAktif').innerText = daftarKelasUnik.size + " Kelas";
+        
+        // Hitung kehadiran hari ini
+        hitungKehadiranHariIni(totalSiswaDatabase);
+    }, (error) => {
+        console.error("Gagal memuat data:", error);
+    });
+}
 
-                const persentase = totalSiswaDatabase > 0 ? Math.round((totalHadir / totalSiswaDatabase) * 100) : 0;
-                document.getElementById('txtHadirHariIni').innerText = persentase + "%";
-            }, (error) => {
-                console.error("Gagal memuat riwayat:", error);
-                document.getElementById('txtHadirHariIni').innerText = "Error";
-            });
+function hitungKehadiranHariIni(totalSiswa) {
+    const tanggalHariIni = new Date().toLocaleDateString('id-ID'); 
+
+    db.collection("riwayat")
+      .where("tanggal", "==", tanggalHariIni)
+      .onSnapshot((snapshot) => {
+        if (snapshot.empty || totalSiswa === 0) {
+            document.getElementById('txtHadirHariIni').innerText = "0%";
+            return;
         }
+
+        let totalHadir = 0;
+        snapshot.forEach(doc => {
+            const status = doc.data().status;
+            if (status === 'Hadir' || status === 'Terlambat') {
+                totalHadir++;
+            }
+        });
+
+        const persentase = Math.round((totalHadir / totalSiswa) * 100);
+        document.getElementById('txtHadirHariIni').innerText = persentase + "%";
+    });
+}
+
 
         // Jalankan saat halaman dibuka
         hitungStatistikDashboard();

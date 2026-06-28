@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AKM Builder Pro - AI Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-area { width: 100%; box-shadow: none; border: none; padding: 0; margin: 0; }
+        }
+        .tab-active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-100 flex flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-600 mb-4"></div>
+        <p class="text-sm font-semibold text-slate-600">Memverifikasi sesi keamanan...</p>
+    </div>
+
+    <nav class="bg-indigo-900 text-white shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
+            
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
+                <div class="bg-white p-1.5 rounded-lg shadow">
+                    <svg class="w-6 h-6 text-indigo-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <div class="text-center sm:text-left">
+                    <h1 class="text-xl font-bold tracking-tight">AKM Builder <span class="text-indigo-300">Pro</span></h1>
+                    <p class="text-[10px] text-indigo-200">AI PDF & Image to Question Generator</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+                <button onclick="bersihkanData()" class="flex-1 sm:flex-none bg-red-600 hover:bg-red-500 px-3 py-2.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-center">
+                    Bersihkan
+                </button>
+                <button onclick="exportToWord()" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 px-2 py-2.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1 sm:gap-2 text-center">
+                    Download .docx
+                </button>
+                <button onclick="window.print()" class="flex-1 sm:flex-none bg-gray-700 hover:bg-gray-600 px-3 py-2.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-center">
+                    Cetak
+                </button>
+                <button onclick="logout()" class="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-2.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-center text-red-400 font-bold">
+                    Keluar
+                </button>
+            </div>
+
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-6 no-print">
+            <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-900 border-b pb-2">
+                    Sumber Materi Soal
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-2 mb-5">
+                    <button id="tab-manual" onclick="setMode('manual')" class="tab-active py-2 px-4 rounded-lg text-sm font-bold border transition text-center"> Manual</button>
+                    <button id="tab-pdf" onclick="setMode('pdf')" class="tab-inactive py-2 px-4 rounded-lg text-sm font-bold border transition text-center"> File / Foto</button>
+                </div>
+
+                <div class="space-y-4">
+                    <div id="area-manual" class="block">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Topik Utama</label>
+                        <input type="text" id="ai-topic" placeholder="Cth: Tata Surya, Sejarah Kemerdekaan..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400">
+                    </div>
+
+                    <div id="area-pdf" class="hidden">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Upload File (Bisa Pilih Banyak Foto)</label>
+                        <input type="file" id="pdf-file" accept="application/pdf, image/png, image/jpeg, image/jpg" multiple class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+                        <p id="pdf-status" class="mt-2 text-xs font-medium text-slate-500"></p>
+                        <div id="preview-container" class="mt-3 flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Kategori</label>
+                            <select id="kategori" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+                                <option>Literasi Membaca</option>
+                                <option>Numerasi</option>
+                                <option>Sains</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Kesulitan</label>
+                            <select id="difficulty" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+                                <option value="easy">Mudah (L1)</option>
+                                <option value="medium" selected>Sedang (L2)</option>
+                                <option value="hard">Sulit (L3)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-xl text-white">
+                <h2 class="text-md font-bold mb-3">Komposisi 6 Tipe Soal AKM</h2>
+                <div class="space-y-2 mb-5">
+                    <div class="flex justify-between items-center bg-indigo-800/50 p-2 rounded">
+                        <label class="text-xs">Pilihan Ganda (PG)</label>
+                        <input type="number" id="jml-pg" value="1" min="0" max="10" class="w-12 p-1 text-center text-slate-900 rounded border-none text-sm">
+                    </div>
+                    <div class="flex justify-between items-center bg-indigo-800/50 p-2 rounded">
+                        <label class="text-xs">PG Kompleks (PGK)</label>
+                        <input type="number" id="jml-pgk" value="1" min="0" max="10" class="w-12 p-1 text-center text-slate-900 rounded border-none text-sm">
+                    </div>
+                    <div class="flex justify-between items-center bg-indigo-800/50 p-2 rounded">
+                        <label class="text-xs">Benar/Salah (BS)</label>
+                        <input type="number" id="jml-bs" value="1" min="0" max="10" class="w-12 p-1 text-center text-slate-900 rounded border-none text-sm">
+                    </div>
+                    <div class="flex justify-between items-center bg-indigo-800/50 p-2 rounded">
+                        <label class="text-xs">BS Majemuk (4 Baris)</label>
+                        <input type="number" id="jml-bsm" value="1" min="0" max="10" class="w-12 p-1 text-center text-slate-900 rounded border-none text-sm">
+                    </div>
+                    <div class="flex justify-between items-center bg-indigo-800/50 p-2 rounded">
+                        <label class="text-xs">Menjodohkan (5 Pilihan)</label>
+                        <input type="number" id="jml-match" value="1" min="0" max="10" class="w-12 p-1 text-center text-slate-900 rounded border-none text-sm">
+                    </div>
+                    <div class="flex justify-between items-center bg-indigo-800/50 p-2 rounded">
+                        <label class="text-xs">Isian Singkat</label>
+                        <input type="number" id="jml-isian" value="1" min="0" max="10" class="w-12 p-1 text-center text-slate-900 rounded border-none text-sm">
+                    </div>
+                </div>
+
+                <button id="ai-btn" onclick="generateBulkAI()" class="w-full bg-yellow-400 text-indigo-900 font-bold py-3 rounded-xl hover:bg-yellow-300 transition shadow-lg flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Generate Soal Sekarang
+                </button>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8">
+            <div id="preview-area" class="bg-white p-8 rounded-2xl shadow-md min-h-[800px] border border-slate-200 print-area">
+                <div class="text-center border-b-4 border-double border-slate-800 pb-4 mb-8">
+                    <h2 class="text-2xl font-bold uppercase tracking-wide text-slate-900">Lembar Soal AKM</h2>
+                    <p class="text-slate-600 mt-1">Dokumen Rahasia - Format Direct Question</p>
+                </div>
+                <div id="soal-list" class="space-y-8"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="saweria-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4 no-print">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center border border-slate-200">
+            <div class="text-4xl mb-2 animate-bounce">☕</div>
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Dukung Creator Aplikasi</h3>
+            <p class="text-xs text-slate-500 mb-4">File soal Anda sudah siap dibuat.</p>
+            
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left mb-5">
+                <p class="text-xs text-amber-900 leading-relaxed font-medium">
+                    Aplikasi ini gratis dan dikembangkan mandiri. Sembari mendownload, yuk apresiasi admin lewat <span class="font-bold text-orange-600">Saweria</span> agar program ini tetap aktif dan gratis!
+                </p>
+                <div class="text-center mt-3">
+                    <a href="https://saweria.co/enjib" target="_blank" class="inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs py-2 px-4 rounded-lg shadow transition">
+                        Dukung via Saweria ☕
+                    </a>
+                </div>
+            </div>
+
+            <button id="confirm-download-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg text-sm transition shadow-md">
+                OK, Lanjutkan Download
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+        // Konfigurasi Firebase Anda
+        const firebaseConfig = {
+            apiKey: "AIzaSyBiHKwvqo0y1VY3dHJlS7G7PmC8_1qPLS8",
+            authDomain: "akmpro-c45ff.firebaseapp.com",
+            projectId: "akmpro-c45ff",
+            storageBucket: "akmpro-c45ff.firebasestorage.app",
+            messagingSenderId: "937163486934",
+            appId: "1:937163486934:web:271a8b3af5eb362d93fb77",
+            measurementId: "G-8RGSS3GFB4"
+        };
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // --- SISTEM PROTEKSI KEAMANAN: CEK STATUS LOGIN ---
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                localStorage.removeItem('akm_login_status');
+                localStorage.removeItem('akm_user_email');
+                window.location.href = "login.html";
+            } else {
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
+        });
+
+        // --- FUNGSI TOMBOL KELUAR (LOGOUT) ---
+        async function logout() {
+            if (confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
+                try {
+                    await signOut(auth);
+                    localStorage.removeItem('akm_login_status');
+                    localStorage.removeItem('akm_user_email');
+                    window.location.href = "https://akmpro-1.netlify.app/";
+                } catch (error) {
+                    console.error("Gagal melakukan proses logout: ", error);
+                    alert("Gagal keluar dari server. Coba lagi.");
+                }
+            }
+        }
+
+        // =========================================================================
+        // LOGIKA CORE APLIKASI AKM BUILDER PRO
+        // =========================================================================
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwedvO3a7FG-2bFZ_b0OiimhpI7TDVUwQu_OSkepBXIPd9OQ9hO5aBpq3ilkXp-Vbr38w/exec";
+        
+        // ISI URL DIRECT LINK ADSTERRA KAMU DI SINI
+        const LINK_DIRECT_ADS = "https://isi-dengan-direct-link-adsterra-kamu.com";
+
+        let dataSoal = [];
+        let inputMode = 'manual'; 
+        let extractedPdfText = ""; 
+        let uploadedImages = [];
+
+        // --- SISTEM LOCAL STORAGE ---
+        function simpanKeLokal() { localStorage.setItem('dataSoalAkm', JSON.stringify(dataSoal)); }
+        function muatDariLokal() {
+            const dataTersimpan = localStorage.getItem('dataSoalAkm');
+            if (dataTersimpan) { dataSoal = JSON.parse(dataTersimpan); renderSoal(); } else { renderSoal(); }
+        }
+        function bersihkanData() {
+            if (confirm("Hapus semua soal?")) { dataSoal = []; localStorage.removeItem('dataSoalAkm'); renderSoal(); }
+        }
+
+        // --- SISTEM MODE TAB ---
+        function setMode(mode) {
+            inputMode = mode;
+            document.getElementById('tab-manual').className = mode === 'manual' ? "tab-active py-2 px-4 rounded-lg text-sm font-bold border transition text-center" : "tab-inactive py-2 px-4 rounded-lg text-sm font-bold border transition text-center";
+            document.getElementById('tab-pdf').className = mode === 'pdf' ? "tab-active py-2 px-4 rounded-lg text-sm font-bold border transition text-center" : "tab-inactive py-2 px-4 rounded-lg text-sm font-bold border transition text-center";
+            document.getElementById('area-manual').classList.toggle('hidden', mode !== 'manual');
+            document.getElementById('area-pdf').classList.toggle('hidden', mode !== 'pdf');
+        }
+
+        // --- SISTEM PEMBACA FILE (PDF & MULTIPLE FOTO) ---
+        document.getElementById('pdf-file').addEventListener('change', async function(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            const statusEl = document.getElementById('pdf-status');
+            const previewContainer = document.getElementById('preview-container');
+            
+            extractedPdfText = "";
+            uploadedImages = [];
+            previewContainer.innerHTML = "";
+
+            let hasImage = false;
+            let hasPdf = false;
+            
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('image/')) hasImage = true;
+                if (files[i].type === 'application/pdf') hasPdf = true;
+            }
+
+            if (hasImage && hasPdf) return alert("Harap masukkan file PDF SAJA, ATAU beberapa foto/gambar SAJA. Jangan digabungkan.");
+
+            if (hasImage) {
+                statusEl.innerHTML = " Sedang memproses gambar materi...";
+                let filesLoaded = 0;
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        const base64Data = event.target.result.split(',')[1];
+                        uploadedImages.push({ mimeType: file.type, data: base64Data });
+                        
+                        const imgEl = document.createElement('img');
+                        imgEl.src = event.target.result;
+                        imgEl.className = "h-20 w-20 object-cover rounded border-2 border-indigo-200 shadow-sm";
+                        previewContainer.appendChild(imgEl);
+
+                        filesLoaded++;
+                        if (filesLoaded === files.length) {
+                            statusEl.innerHTML = `<span class="text-emerald-600 font-bold"> ${files.length} Foto materi berhasil dibaca. Siap di-generate!</span>`;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+                return;
+            }
+
+            if (hasPdf) {
+                const file = files[0]; 
+                statusEl.innerHTML = " Sedang mengekstrak teks materi dari PDF...";
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                    let fullText = "";
+                    const maxPages = Math.min(pdf.numPages, 20); 
+
+                    for (let i = 1; i <= maxPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(" ");
+                        fullText += pageText + "\n";
+                    }
+                    extractedPdfText = fullText.trim();
+                    
+                    if (extractedPdfText.length < 15) {
+                        statusEl.innerHTML = `<span class="text-red-500 font-bold"> Gagal: Teks PDF kosong (Hasil Scan). Silakan screenshot halaman PDF tersebut lalu upload dalam format Foto (JPG/PNG).</span>`;
+                        extractedPdfText = ""; 
+                    } else {
+                        statusEl.innerHTML = `<span class="text-emerald-600 font-bold"> PDF terbaca (${maxPages} halaman). Siap di-generate!</span>`;
+                    }
+                } catch (error) {
+                    console.error(error);
+                    statusEl.innerHTML = `<span class="text-red-500 font-bold"> Gagal membaca dokumen PDF. File corrupt.</span>`;
+                }
+                return;
+            }
+        });
+
+        // --- SISTEM HUBUNG KE AI VIA PROXY GAS ---
+        async function generateBulkAI() {
+            const kategori = document.getElementById('kategori').value;
+            const difficulty = document.getElementById('difficulty').value;
+            const jmlPG = parseInt(document.getElementById('jml-pg').value) || 0;
+            const jmlPGK = parseInt(document.getElementById('jml-pgk').value) || 0;
+            const jmlBS = parseInt(document.getElementById('jml-bs').value) || 0;
+            const jmlBSM = parseInt(document.getElementById('jml-bsm').value) || 0;
+            const jmlMatch = parseInt(document.getElementById('jml-match').value) || 0;
+            const jmlIsian = parseInt(document.getElementById('jml-isian').value) || 0;
+            const totalSoal = jmlPG + jmlPGK + jmlBS + jmlBSM + jmlMatch + jmlIsian;
+            const btn = document.getElementById('ai-btn');
+
+            if (totalSoal === 0) return alert("Jumlah total soal tidak boleh kosong (0)!");
+            if (GAS_WEB_APP_URL === "") return alert("Konfigurasi Error: Harap isi URL Google Apps Script Anda di dalam kode!");
+
+            let sumberMateriText = "";
+            let apiParts = []; 
+
+            if (inputMode === 'manual') {
+                const topic = document.getElementById('ai-topic').value;
+                if (!topic) return alert("Harap isi Topik Utama terlebih dahulu!");
+                sumberMateriText = `topik umum: "${topic}"`;
+            } else {
+                if (uploadedImages.length > 0) {
+                    sumberMateriText = `referensi materi berwujud ${uploadedImages.length} lembar foto/gambar materi yang dilampirkan bersama prompt ini`;
+                    uploadedImages.forEach(img => {
+                        apiParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+                    });
+                } else if (extractedPdfText) {
+                    const textAman = extractedPdfText.substring(0, 50000);
+                    sumberMateriText = `referensi materi dokumen PDF berikut ini:\n\n"""\n${textAman}\n"""`;
+                } else {
+                    return alert("Anda belum mengupload file PDF ataupun foto materi!");
+                }
+            }
+
+            const promptText = `Anda adalah pembuat soal profesional. Buatkan TOTAL ${totalSoal} soal berdasarkan ${sumberMateriText}.
+            Kategori: ${kategori}, Tingkat Kesulitan: ${difficulty}.
+
+            ATURAN KETAT SOAL:
+            - LANGSUNG ke inti pertanyaan (TANPA wacana/stimulus teks panjang pada properti soalnya).
+            - ${jmlPG} soal tipe "pg" (Pilihan Ganda biasa - 1 jawaban benar. WAJIB 5 OPSI A-E).
+            - ${jmlPGK} soal tipe "pgk" (Pilihan Ganda Kompleks - jawaban benar > 1. WAJIB 5 OPSI A-E).
+            - ${jmlBS} soal tipe "bs" (Benar/Salah tunggal).
+            - ${jmlBSM} soal tipe "bs_multiple" (Benar/Salah majemuk. WAJIB TEPAT 4 PERNYATAAN).
+            - ${jmlMatch} soal tipe "matching" (Menjodohkan. WAJIB TEPAT 5 ITEM kiri dan kanan).
+            - ${jmlIsian} soal tipe "isian" (Isian Singkat).
+
+            Setiap soal wajib memiliki properti "jawaban_benar".
+
+            Format output WAJIB ARRAY JSON MURNI seperti ini:
+            [
+              {"tipe": "pg", "pertanyaan": "...", "opsi": ["Opsi A", "Opsi B", "Opsi C", "Opsi D", "Opsi E"], "jawaban_benar": "Opsi B"},
+              {"tipe": "pgk", "pertanyaan": "...", "opsi": ["Opsi 1", "Opsi 2", "Opsi 3", "Opsi 4", "Opsi 5"], "jawaban_benar": ["Opsi 1", "Opsi 4"]},
+              {"tipe": "bs", "pertanyaan": "...", "opsi": ["Benar", "Salah"], "jawaban_benar": "Benar"},
+              {"tipe": "bs_multiple", "pertanyaan": "...", "pernyataan": [{"teks": "Perny 1", "jawaban": "Benar"}, {"teks": "Perny 2", "jawaban": "Salah"}, {"teks": "Perny 3", "jawaban": "Benar"}, {"teks": "Perny 4", "jawaban": "Salah"}], "jawaban_benar": "Sesuai tabel"},
+              {"tipe": "matching", "pertanyaan": "...", "Kiri": ["Soal 1", "Soal 2", "Soal 3", "Soal 4", "Soal 5"], "Kanan": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D", "Pilihan E"], "jawaban_benar": {"Soal 1": "Pilihan C", "Soal 2": "Pilihan A"}},
+              {"tipe": "isian", "pertanyaan": "...", "opsi": [], "jawaban_benar": "Jawaban"}
+            ]`;
+
+            apiParts.unshift({ text: promptText }); 
+            const userPin = "AKM2026"; 
+
+            btn.disabled = true;
+            btn.innerHTML = ` Menghubungi Server...`;
+
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ apiParts: apiParts, pin: userPin })
+                });
+
+                if (!response.ok) throw new Error(`Server membalas dengan status HTTP: ${response.status}`);
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                let aiText = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const hasilSoal = JSON.parse(aiText);
+                hasilSoal.forEach(soal => {
+                    soal.id = Date.now() + Math.random();
+                    dataSoal.push(soal);
+                });
+
+                simpanKeLokal();
+                renderSoal();
+                alert(`Berhasil membuat ${totalSoal} butir soal baru!`);
+            } catch (error) {
+                console.error("Gagal memproses via GAS:", error);
+                alert("Gagal Generate Soal: " + error.message);
+            }
+
+            btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Generate Soal Sekarang`;
+            btn.disabled = false;
+        }
+
+        // --- SISTEM RENDERING SOAL DI LAYAR PREVIEW ---
+        function renderSoal() {
+            const list = document.getElementById('soal-list');
+            if(dataSoal.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-32 text-slate-400 no-print" id="empty-state">
+                        <svg class="w-20 h-20 mx-auto mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <p class="text-lg">Belum ada bank soal tersedia.</p>
+                        <p class="text-sm mt-2">Pilih sumber materi, tentukan jumlah soal, kemudian klik tombol Generate.</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = '';
+            dataSoal.forEach((s, idx) => {
+                let badgeTipe = s.tipe.toUpperCase();
+                let html = `
+                    <div class="relative bg-white page-break-inside-avoid border-b pb-6 border-slate-200">
+                        <div class="flex justify-between items-start mb-3 border-b pb-2 border-slate-100">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">SOAL NO. ${idx + 1} | Tipe: ${badgeTipe}</span>
+                            <button onclick="hapusSoal(${s.id})" class="no-print text-red-400 hover:text-red-600 text-xs font-bold">HAPUS</button>
+                        </div>
+                        <p class="font-semibold text-slate-900 mb-4 text-[15px]">${s.pertanyaan}</p>
+                `;
+
+                if (s.tipe === 'pg' || s.tipe === 'pgk') {
+                    html += `<div class="grid grid-cols-1 gap-2 ml-2">`;
+                    if (s.opsi) s.opsi.forEach((o, i) => {
+                        let box = s.tipe === 'pg' ? 'rounded-full' : 'rounded';
+                        html += `<div class="flex gap-3 text-sm items-start"><span class="font-bold border border-slate-400 w-6 h-6 flex items-center justify-center ${box} text-xs flex-shrink-0">${String.fromCharCode(65+i)}</span> <span class="pt-0.5">${o}</span></div>`;
+                    });
+                    html += `</div>`;
+                } else if (s.tipe === 'bs') {
+                    html += `<div class="flex gap-4 ml-2 mt-2 text-sm"><label class="flex items-center gap-2"><input type="radio" disabled> Benar</label><label class="flex items-center gap-2"><input type="radio" disabled> Salah</label></div>`;
+                } else if (s.tipe === 'bs_multiple') {
+                    html += `<table class="w-full text-sm border-collapse border border-slate-300 ml-2 mt-2"><tr class="bg-slate-100"><th class="border border-slate-300 p-2 text-left">Pernyataan</th><th class="border border-slate-300 p-2 text-center w-20">Benar</th><th class="border border-slate-300 p-2 text-center w-20">Salah</th></tr>`;
+                    if (s.pernyataan) s.pernyataan.forEach(p => html += `<tr><td class="border border-slate-300 p-2">${p.teks}</td><td class="border border-slate-300 p-2 text-center"><input type="checkbox" disabled></td><td class="border border-slate-300 p-2 text-center"><input type="checkbox" disabled></td></tr>`);
+                    html += `</table>`;
+                } else if (s.tipe === 'matching') {
+                    html += `<div class="grid grid-cols-2 gap-8 ml-2 mt-2 text-sm bg-slate-50 p-4 rounded border border-slate-200"><div><p class="font-bold mb-1 text-slate-600">Bagian Kiri</p><ol class="list-decimal pl-4 space-y-1">`;
+                    if (s.Kiri) s.Kiri.forEach(k => html += `<li>${k}</li>`);
+                    html += `</ol></div><div><p class="font-bold mb-1 text-slate-600">Pilihan Kanan</p><ol class="list-alpha pl-4 space-y-1" style="list-style-type: lower-alpha;">`;
+                    if (s.Kanan) s.Kanan.forEach(kn => html += `<li>${kn}</li>`);
+                    html += `</ol></div></div>`;
+                } else {
+                    html += `<div class="mt-2 ml-2 text-sm font-mono text-slate-400">Jawab: _____________________________________</div>`;
+                }
+
+                let teksJwbn = "";
+                if (s.tipe === 'bs_multiple' && Array.isArray(s.pernyataan)) {
+                    teksJwbn = s.pernyataan.map((p, i) => `${i+1}. ${p.jawaban || p.Jawaban}`).join(" | ");
+                } else {
+                    teksJwbn = typeof s.jawaban_benar === 'object' ? JSON.stringify(s.jawaban_benar).replace(/["{}]/g, ' ') : s.jawaban_benar;
+                }
+                html += `
+                    <div class="mt-4 bg-emerald-50 text-emerald-800 p-3 rounded-lg text-xs font-semibold border border-emerald-200 no-print flex items-center gap-2">
+                        <span> Kunci Jawaban:</span><span class="font-bold underline">${teksJwbn}</span>
+                    </div>
+                </div>`;
+                list.innerHTML += html;
+            });
+        }
+
+        function hapusSoal(id) { dataSoal = dataSoal.filter(s => s.id !== id); simpanKeLokal(); renderSoal(); }
+
+        // --- SISTEM PEMICU MODAL (SEBELUM DOWNLOAD SEBENARNYA) ---
+        function exportToWord() {
+            if (dataSoal.length === 0) return alert("Tidak ada data soal untuk diexport.");
+            
+            // 1. Pemicu Iklan Direct Link Adsterra membuka di tab baru
+            window.open(LINK_DIRECT_ADS, '_blank');
+
+            // 2. Tampilkan Modal Saweria di tab utama aplikasi
+            document.getElementById('saweria-modal').classList.remove('hidden');
+        }
+
+        // --- SISTEM UTAMA EKSPOR PROSES NYATA SETELAH KLIK "OK" ---
+        function eksekusiUnduhWordAsli() {
+            // Sembunyikan modal kembali
+            document.getElementById('saweria-modal').classList.add('hidden');
+            
+            let header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word</title></head><body>";
+            let footer = "</body></html>";
+            
+            let content = "<h1 style='text-align:center; font-family: Arial, sans-serif;'>LEMBAR SOAL AKM</h1>";
+            content += "<p style='text-align:center; font-style: italic; font-family: Arial, sans-serif;'>Dokumen Rahasia - Generated by AKMpro</p><hr><br>";
+
+            dataSoal.forEach((s, i) => {
+                let tipe = s.tipe ? String(s.tipe).toUpperCase() : "UMUM";
+                content += `<h3 style='font-family: Arial, sans-serif;'>SOAL NO. ${i + 1} (${tipe})</h3>`;
+                content += `<p style='font-family: Arial, sans-serif;'>${s.pertanyaan}</p>`;
+                
+                if ((s.tipe === 'pg' || s.tipe === 'pgk') && Array.isArray(s.opsi)) {
+                    s.opsi.forEach((o, idx) => {
+                        content += `<p style='margin-left: 40px; font-family: Arial, sans-serif;'>${String.fromCharCode(65 + idx)}. ${o}</p>`;
+                    });
+                } else if (s.tipe === 'bs') {
+                     content += `<p style='margin-left: 40px; font-family: Arial, sans-serif;'>[  ] Benar &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [  ] Salah</p>`;
+                } else if (s.tipe === 'bs_multiple' && Array.isArray(s.pernyataan)) {
+                     s.pernyataan.forEach(p => {
+                         let teksPernyataan = p.teks ? String(p.teks) : "-";
+                         content += `<p style='margin-left: 40px; font-family: Arial, sans-serif;'>• (B / S) ${teksPernyataan}</p>`;
+                     });
+                } else if (s.tipe === 'matching' && Array.isArray(s.Kiri)) {
+                     content += `<p style='font-weight: bold; font-family: Arial, sans-serif;'>Pasangkan poin berikut:</p>`;
+                     s.Kiri.forEach((k, idx) => {
+                         let teksKiri = k ? String(k) : "-";
+                         content += `<p style='margin-left: 40px; font-family: Arial, sans-serif;'>${idx + 1}. ${teksKiri} &nbsp;&nbsp; &lt;---&gt; &nbsp;&nbsp; .....................</p>`;
+                     });
+                } else {
+                     content += `<p style='margin-left: 40px; font-family: Arial, sans-serif;'>Jawab: .....................................................................</p>`;
+                }
+                
+                let teksJwbn = "-";
+                if (s.tipe === 'bs_multiple' && Array.isArray(s.pernyataan)) {
+                    teksJwbn = s.pernyataan.map((p, i) => `${i+1}. ${p.jawaban || p.Jawaban}`).join(" | ");
+                } else if (s.jawaban_benar) {
+                    teksJwbn = typeof s.jawaban_benar === 'object' ? JSON.stringify(s.jawaban_benar).replace(/["{}]/g, ' ') : String(s.jawaban_benar);
+                }
+
+                content += `<p style='margin-left:40px; color: #059669; font-family: Arial, sans-serif;'><b>Kunci Jawaban:</b> <i>${teksJwbn}</i></p><br>`;
+            });
+
+            let sourceHTML = header + content + footer;
+            let blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
+            let url = URL.createObjectURL(blob);
+            
+            let link = document.createElement('a');
+            link.href = url;
+            link.download = 'Soal_AKM_Offline.doc';
+            
+            document.body.appendChild(link);
+            link.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+            
+            alert(" Berhasil! File Word (.doc) berhasil diunduh.");
+        }
+
+        // Hubungkan event click tombol OK di modal ke fungsi download asli
+        document.getElementById('confirm-download-btn').addEventListener('click', eksekusiUnduhWordAsli);
+
+        // --- EXPOSE MODULAR FUNCTIONS TO GLOBAL WINDOW SCOPE ---
+        window.bersihkanData = bersihkanData;
+        window.exportToWord = exportToWord;
+        window.setMode = setMode;
+        window.generateBulkAI = generateBulkAI;
+        window.hapusSoal = hapusSoal;
+        window.logout = logout;
+
+        muatDariLokal();
+    </script>
+</body>
+</html>

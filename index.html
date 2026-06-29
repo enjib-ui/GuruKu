@@ -379,7 +379,7 @@
             </div>
 
             <div class="content-body">
-                <iframe id="appFrame" src="dashboard.html" title="Modul Aplikasi GuruKu"></iframe>
+                <iframe id="appFrame" src="about:blank" title="Modul Aplikasi GuruKu"></iframe>
             </div>
         </main>
 
@@ -434,6 +434,9 @@
                 loginView.style.display = "flex";
                 loginError.style.display = "none";
                 document.getElementById('loginForm').reset();
+                
+                // 🛠️ DIUBAH: Pastikan iframe bersih saat user logout demi memutus loop
+                iframe.src = "about:blank";
             }
         });
 

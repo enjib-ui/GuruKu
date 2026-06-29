@@ -7,6 +7,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
     <style>
         :root {
             --bg-sidebar: #152033;
@@ -15,6 +18,7 @@
             --text-color: #ffffff;
             --text-muted: #94a3b8;
             --bg-main: #f8fafc;
+            --accent-color: #00b4d8;
         }
 
         * {
@@ -30,9 +34,115 @@
             overflow-x: hidden;
         }
 
-        /* Container Utama */
-        .app-container {
+        /* --- STYLING HALAMAN LOGIN --- */
+        .login-wrapper {
             display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--bg-header);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-sidebar);
+            width: 100%;
+            max-width: 420px;
+            padding: 40px 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .login-header i {
+            font-size: 3rem;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .login-header h2 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .login-header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .form-group {
+            position: relative;
+            margin-bottom: 22px;
+        }
+
+        .form-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px 15px 14px 45px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-color);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 8px rgba(0, 180, 216, 0.2);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent-color);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .btn-login:hover {
+            background: #0096b4;
+        }
+
+        .login-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            border-left: 4px solid #ef4444;
+            display: none;
+        }
+
+        /* Container Utama Dasbor */
+        .app-container {
+            display: none; /* Disembunyikan sebelum login sukses */
+            flex-content: row;
             min-height: 100vh;
             position: relative;
         }
@@ -174,7 +284,31 @@
 </head>
 <body>
 
-    <div class="app-container">
+    <div class="login-wrapper" id="loginView">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fas fa-graduation-cap"></i>
+                <h2>GuruKu</h2>
+                <p>Silakan masuk menggunakan akun Firebase Anda</p>
+            </div>
+            
+            <div class="login-error" id="loginError">Pesan kesalahan akan muncul di sini.</div>
+            
+            <form id="loginForm" onsubmit="prosesLogin(event)">
+                <div class="form-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="loginEmail" class="form-control" placeholder="Email Sekolah / Pengajar" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="Kata Sandi" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-login" id="btnLoginSubmit">Masuk ke Dasbor</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-container" id="dashboardView">
         
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
@@ -215,9 +349,14 @@
                     <span>Buat Soal</span>
                 </a>
 
-                <a class="menu-item" style="margin-top: auto;" onclick="gantiMenu(this, 'pengaturan')">
+                <a class="menu-item" onclick="gantiMenu(this, 'pengaturan')">
                     <i class="fas fa-cog"></i>
                     <span>Pengaturan</span>
+                </a>
+
+                <a class="menu-item" style="margin-top: auto; color: #f87171;" onclick="prosesLogout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Keluar Akun</span>
                 </a>
             </nav>
         </aside>
@@ -245,6 +384,27 @@
     </div>
 
     <script>
+        // --- CONFIGURASI FIREBASE ---
+        // Ganti objek konfigurasi di bawah ini dengan kredensial aplikasi Firebase Proyek Anda sendiri.
+        const firebaseConfig = {
+            apiKey: "CONTOH_API_KEY_FIREBASE_ANDA",
+            authDomain: "proyek-anda.firebaseapp.com",
+            projectId: "proyek-anda",
+            storageBucket: "proyek-anda.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:123456:web:abcd1234efgh"
+        };
+
+        // Inisialisasi Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // --- DOM ELEMENTS ---
+        const loginView = document.getElementById('loginView');
+        const dashboardView = document.getElementById('dashboardView');
+        const loginError = document.getElementById('loginError');
+        const btnLoginSubmit = document.getElementById('btnLoginSubmit');
+
         const menuToggle = document.getElementById('menuToggle');
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -253,6 +413,75 @@
         const btnShare = document.getElementById('btnShare');
         const btnShareText = document.getElementById('btnShareText');
 
+        // Variabel Global Data Aplikasi
+        let USER_UID = "";
+        const LINK_UJIAN = "https://ujianku-1.netlify.app/"; 
+
+        // --- AUTH STATE OBSERVER (Memantau Status Log In/Out secara Real-time) ---
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // Pengguna terautentikasi
+                USER_UID = user.uid;
+                loginView.style.display = "none";
+                dashboardView.style.display = "flex";
+                
+                // Set default halaman awal dasbor saat masuk kembali
+                const defaultActiveMenu = document.querySelector('.menu-item.active');
+                gantiMenu(defaultActiveMenu, 'dashboard');
+            } else {
+                // Pengguna belum login atau keluar akun
+                USER_UID = "";
+                dashboardView.style.display = "none";
+                loginView.style.display = "flex";
+                loginError.style.display = "none";
+                document.getElementById('loginForm').reset();
+            }
+        });
+
+        // --- PROSES LOGIN FIREBASE ---
+        function prosesLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const sandi = document.getElementById('loginPassword').value;
+
+            // Efek Loading pada Tombol
+            btnLoginSubmit.innerText = "Memproses...";
+            btnLoginSubmit.disabled = true;
+            loginError.style.display = "none";
+
+            auth.signInWithEmailAndPassword(email, sandi)
+                .then((userCredential) => {
+                    btnLoginSubmit.innerText = "Masuk ke Dasbor";
+                    btnLoginSubmit.disabled = false;
+                })
+                .catch((error) => {
+                    btnLoginSubmit.innerText = "Masuk ke Dasbor";
+                    btnLoginSubmit.disabled = false;
+                    loginError.style.display = "block";
+                    
+                    // Terjemahan Pesan Error Firebase yang Umum
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                        loginError.innerText = "Kombinasi email atau kata sandi salah. Harap periksa kembali.";
+                    } else if (error.code === 'auth/invalid-email') {
+                        loginError.innerText = "Format penulisan email salah atau tidak valid.";
+                    } else if (error.code === 'auth/too-many-requests') {
+                        loginError.innerText = "Akses diblokir sementara karena terlalu banyak kegagalan percobaan. Coba lagi nanti.";
+                    } else {
+                        loginError.innerText = "Gagal masuk: " + error.message;
+                    }
+                });
+        }
+
+        // --- PROSES LOGOUT ---
+        function prosesLogout() {
+            if (confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
+                auth.signOut().catch((err) => {
+                    alert("Gagal keluar akun: " + err.message);
+                });
+            }
+        }
+
+        // --- FITUR SIDEBAR INTERAKTIF ---
         function toggleSidebar() {
             sidebar.classList.toggle('active');
             sidebarOverlay.classList.toggle('active');
@@ -260,9 +489,6 @@
 
         menuToggle.addEventListener('click', toggleSidebar);
         sidebarOverlay.addEventListener('click', toggleSidebar);
-
-        const USER_UID = "GURU_DEMO_123";
-        const LINK_UJIAN = "https://ujianku-1.netlify.app/"; 
         
         function gantiMenu(elemen, jenisMenu) {
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
@@ -280,7 +506,6 @@
                 iframe.src = "dashboard.html";
             } else if (jenisMenu === 'jadwal') {
                 pageTitle.innerText = "Kelola Jadwal Mengajar";
-                // Menyuntikkan form UI Pengaturan Jadwal langsung ke dalam Iframe (Tanpa perlu membuat file html terpisah)
                 iframe.srcdoc = `
                     <!DOCTYPE html>
                     <html lang="id">
@@ -367,8 +592,6 @@
                                 });
                                 localStorage.setItem("guruJadwalMaster", JSON.stringify(jadwalData));
                                 alert("✨ Jadwal berhasil diperbarui!");
-                                
-                                // Memberi sinyal ke file induk agar mengembalikan menu ke "Dashboard"
                                 window.parent.postMessage({ action: 'pindahMenu', menu: 'dashboard' }, '*');
                             }
                             render();
